@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -22,137 +23,12 @@ stlite.mount(
     requirements: [],
     entrypoint: "streamlit_app.py",
     files: {
-"streamlit_app.py": `import yfinance as yf
-import pandas as pd
-import streamlit as st
+"streamlit_app.py": `import streamlit as st
 
-@st.cache
-def get_sp500_tickers():
-    try:
-        sp500_tickers = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]['Symbol'].tolist()
-        return sp500_tickers
-    except Exception as e:
-        st.error(f"Error fetching S&P 500 tickers: {e}")
-        return []
 
-@st.cache
-def get_nyse_tickers():
-    nyse_tickers = [
-        'AAPL', 'MSFT', 'JNJ', 'V', 'JPM', 'WMT', 'PG', 'UNH', 'HD', 'DIS'
-        # Add more tickers here or load them from an external source
-    ]
-    return nyse_tickers
 
-@st.cache
-def download_stock_data(tickers):
-    stock_data = []
-    for ticker in tickers:
-        try:
-            ticker_info = yf.Ticker(ticker)
-            info = ticker_info.info
-            data = {
-                'Ticker': ticker,
-                'Name': info.get('shortName', None),
-                'Sector': info.get('sector', None),
-                'Current_Price': info.get('currentPrice', None),
-                'PE_Ratio': info.get('forwardPE', None),
-                'PB_Ratio': info.get('priceToBook', None),
-                'Market_Cap': info.get('marketCap', None),
-                'Current_Ratio': info.get('currentRatio', None),
-                'Debt_to_Equity': info.get('debtToEquity', None),
-                'Free_Cash_Flow': info.get('freeCashflow', None),
-                'PEG_Ratio': info.get('pegRatio', None)
-            }
-            stock_data.append(data)
-        except Exception as e:
-            st.warning(f'Error downloading data for {ticker}: {e}')
-    stock_dataframe = pd.DataFrame(stock_data)
-    return stock_dataframe
-
-def filter_dataframe(df, pe_ratio_range=None, pb_ratio_range=None, current_ratio_range=None, market_cap_range=None, debt_to_equity_range=None, free_cashflow_range=None, peg_ratio_range=None, sectors=None):
-    if pe_ratio_range is not None:
-        df = df[(df['PE_Ratio'] >= pe_ratio_range[0]) & (df['PE_Ratio'] <= pe_ratio_range[1])]
-    if pb_ratio_range is not None:
-        df = df[(df['PB_Ratio'] >= pb_ratio_range[0]) & (df['PB_Ratio'] <= pb_ratio_range[1])]
-    if current_ratio_range is not None:
-        df = df[(df['Current_Ratio'] >= current_ratio_range[0]) & (df['Current_Ratio'] <= current_ratio_range[1])]
-    if market_cap_range is not None:
-        df = df[(df['Market_Cap'] >= market_cap_range[0]) & (df['Market_Cap'] <= market_cap_range[1])]
-    if debt_to_equity_range is not None:
-        df = df[(df['Debt_to_Equity'] >= debt_to_equity_range[0]) & (df['Debt_to_Equity'] <= debt_to_equity_range[1])]
-    if free_cashflow_range is not None:
-        df = df[(df['Free_Cash_Flow'] >= free_cashflow_range[0]) & (df['Free_Cash_Flow'] <= free_cashflow_range[1])]
-    if peg_ratio_range is not None:
-        df = df[(df['PEG_Ratio'] >= peg_ratio_range[0]) & (df['PEG_Ratio'] <= peg_ratio_range[1])]
-    if sectors:
-        df = df[df['Sector'].isin(sectors)]
-    return df
-
-def main():
-    st.title("S&P 500 and NYSE Stock Data")
-
-    # Download data
-    sp500_tickers = get_sp500_tickers()
-    nyse_tickers = get_nyse_tickers()
-    all_tickers = sp500_tickers + nyse_tickers
-
-    if not all_tickers:
-        st.error("No tickers to download. Please check your sources.")
-        return
-
-    with st.spinner('Downloading stock data for S&P 500 and NYSE...'):
-        stock_summary_data = download_stock_data(all_tickers)
-
-    if stock_summary_data.empty:
-        st.error("Failed to download stock data. Please try again later.")
-        return
-
-    st.success('Stock data downloaded.')
-
-    # Display initial data
-    st.write("S&P 500 and NYSE Summary Data:")
-   ## st.dataframe(stock_summary_data.head(600))  # Display first 5 rows of the unfiltered data
-
-    # Filters
-    st.sidebar.header('Filters')
-    pe_ratio_range = st.sidebar.slider("PE Ratio Range", min_value=0.0, max_value=100.0, value=(0.0, 100.0), step=0.1)
-    pb_ratio_range = st.sidebar.slider("PB Ratio Range", min_value=0.0, max_value=100.0, value=(0.0, 100.0), step=0.1)
-    current_ratio_range = st.sidebar.slider("Current Ratio Range", min_value=0.0, max_value=20.0, value=(0.0, 20.0), step=0.1)
-    market_cap_range = st.sidebar.slider("Market Cap Range (in billions)", min_value=0.0, max_value=3000.0, value=(0.0, 3000.0), step=1.0)
-    debt_to_equity_range = st.sidebar.slider("Debt to Equity Ratio Range", min_value=0.0, max_value=1000.0, value=(0.0, 1000.0), step=0.1)
-    free_cashflow_range = st.sidebar.slider("Free Cash Flow Range (in billions)", min_value=-100.0, max_value=100.0, value=(-100.0, 100.0), step=1.0)
-    peg_ratio_range = st.sidebar.slider("PEG Ratio Range", min_value=-100.0, max_value=100.0, value=(-100.0, 100.0), step=0.1)
-
-    # Convert market cap and free cash flow from billions to actual values for filtering
-    market_cap_range = (market_cap_range[0] * 1e9, market_cap_range[1] * 1e9)
-    free_cashflow_range = (free_cashflow_range[0] * 1e9, free_cashflow_range[1] * 1e9)
-
-    # Sector filter
-    sectors = stock_summary_data['Sector'].dropna().unique()
-    selected_sectors = st.sidebar.multiselect("Sectors", options=sectors, default=sectors)
-
-    filtered_data = filter_dataframe(stock_summary_data, pe_ratio_range, pb_ratio_range, current_ratio_range, market_cap_range, debt_to_equity_range, free_cashflow_range, peg_ratio_range, selected_sectors)
-
-    # Display filtered data
-    st.write("Filtered Summary Data:")
-    st.dataframe(filtered_data)
-
-    # Value Stocks Button
-    if st.button('Show Value Stocks'):
-        value_stocks = filter_dataframe(stock_summary_data, pe_ratio_range=(0, 8), pb_ratio_range=(0, 10), current_ratio_range=(3, 20), market_cap_range=(1e9, 1e12), sectors=selected_sectors)
-        st.write("Value Stocks:")
-        st.dataframe(value_stocks)
-
-    # High Value Stocks Button
-    if st.button('Show High Value Stocks'):
-        high_value_stocks = filter_dataframe(stock_summary_data, pe_ratio_range=(0, 20), pb_ratio_range=(0, 15), current_ratio_range=(8, 20), market_cap_range=(5e6, 1e12), sectors=selected_sectors)
-        st.write("High Value Stocks:")
-        st.dataframe(high_value_stocks)
-
-if __name__ == "__main__":
-    main()
-st.write('Alex selected stocks')
-`,
+# header
+st.title('Hello google')`,
 
 },
   },
